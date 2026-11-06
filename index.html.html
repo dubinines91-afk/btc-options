@@ -1,0 +1,306 @@
+<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><title>BTC 0DTE Options Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+:root{--bg:#0e1117;--card:#161b22;--k:#1c222b;--txt:#d8dee9;--mut:#8b949e;--line:#262c36;--acc:#f7a600;--inp:#21262d;--sel:#1a2230}
+body{margin:0;background:var(--bg);color:var(--txt);font:13px system-ui}header{padding:10px 16px;background:var(--card);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.k{background:var(--k);padding:6px 10px;border-radius:6px}.k b{display:block;font-size:15px}
+.grid{display:grid;grid-template-columns:1.6fr 1fr;gap:10px;padding:0 10px 10px}.card{background:var(--card);border-radius:8px;padding:10px;margin-bottom:10px}
+table{width:100%;border-collapse:collapse}td,th{padding:3px 6px;text-align:right;border-bottom:1px solid var(--line)}th{color:var(--mut);font-weight:500}td:first-child,th:first-child{text-align:left}
+.res{color:#f85149}.sup{color:#3fb950}.mid{color:var(--acc)}select,button,input{background:var(--inp);color:var(--txt);border:1px solid var(--line);padding:4px 8px;border-radius:4px}
+input{width:62px}input[type=color]{width:34px;height:26px;padding:0}#chart,#chart2{height:300px}.small{color:var(--mut);font-size:11px}
+.sig{padding:6px 8px;border-radius:6px;margin:6px 0;font-weight:600}.on{background:#12351f;color:#3fb950}.off{background:var(--k);color:var(--mut)}
+.ok{color:#3fb950}.no{color:#f85149}h4{margin:6px 0}#err{background:#5a1d1d;color:#fff;padding:8px 16px;display:none;white-space:pre-wrap}
+#tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}.tab{padding:5px 10px;border-radius:6px;background:var(--inp);cursor:pointer;border:1px solid var(--line)}.tab.a{background:var(--acc);color:#000;font-weight:600}
+.chain td,.chain th{text-align:center;padding:3px 5px}.chain td.s{background:var(--k);font-weight:700}.chain td.c{cursor:pointer}.chain td.c:hover{background:var(--k)}
+.chain .itm{background:var(--sel)}.chain td.sel{outline:2px solid var(--acc)}.chain tr.atm td.s{color:var(--acc)}.chain tr.spot td{border-top:2px solid var(--acc)}
+.bid{color:#3fb950}.ask{color:#f85149}.zero{background:var(--acc);color:#000;border-radius:3px;padding:0 4px;font-size:10px;margin-left:4px}
+#chainbox{max-height:420px;overflow:auto}
+.sg{border:1px solid var(--line);border-radius:8px;padding:8px;margin:6px 0;cursor:pointer}.sg:hover{background:var(--k)}.sg.best{border-color:var(--acc)}
+.bar{height:6px;background:var(--k);border-radius:3px;margin:4px 0}.bar i{display:block;height:6px;border-radius:3px;background:var(--acc)}
+.tg{padding:1px 6px;border-radius:4px;font-size:11px;font-weight:700}.tg.C{background:#12351f;color:#3fb950}.tg.P{background:#3a1717;color:#f85149}
+.gr{display:inline-block;min-width:22px;text-align:center;padding:1px 6px;border-radius:4px;font-weight:800;color:#000}.gA{background:#3fb950}.gB{background:#9ccc3c}.gC{background:#f0b429}.gD{background:#f85149}
+.op{border:1px solid var(--acc);border-radius:8px;padding:8px;margin-bottom:8px}
+table.fx td,table.fx th{font-size:11px;padding:1px 4px}
+#calc{margin:10px}#calc .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}#calc label{display:flex;flex-direction:column;gap:2px;font-size:11px;color:var(--mut)}
+.out{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.out div{background:var(--k);padding:6px 10px;border-radius:6px;min-width:100px}.out b{display:block;font-size:15px;color:var(--txt)}
+</style></head><body><div id="err"></div>
+<header><h3 style="margin:0">BTC Options</h3>
+<label>Источник <select id="src"><option value="bybit">Bybit</option><option value="deribit">Deribit</option></select></label>
+<label>Тема <select id="theme"><option value="dark">Тёмная</option><option value="light">Светлая</option><option value="navy">Тёмно-синяя</option><option value="term">Терминал</option><option value="custom">Свой цвет</option></select></label>
+<label>Фон <input type="color" id="cBg" value="#0e1117"></label><label>Акцент <input type="color" id="cAcc" value="#f7a600"></label>
+<div class="k">Index<b id="spot">-</b></div><div class="k">Выбрано<b id="selt">-</b></div><div class="k">Осталось<b id="ttl">-</b></div>
+<div class="k">ATM IV<b id="iv">-</b></div><div class="k">±1σ<b id="em">-</b></div><div class="k">Straddle<b id="str">-</b></div>
+<div class="k">Max Pain<b id="mp">-</b></div><div class="k">Gamma Flip<b id="gf">-</b></div><div class="k">P/C OI<b id="pc">-</b></div>
+<div class="k">IV/HV<b id="hv">-</b></div><div class="k">DVOL rank<b id="dv">-</b></div>
+<label>ТФ (мин) <select id="tf"><option>1</option><option selected>5</option><option>15</option><option>30</option><option>60</option></select></label></header>
+
+<div class="card" id="calc"><h4 style="margin-top:0">Калькулятор позиции (покупка опциона)</h4>
+<div class="row">
+<label>Контракт<b id="cSym" style="color:var(--txt);font-size:13px">-</b></label>
+<label>Капитал, $<input id="pC" type="number" value="10000"></label>
+<label>Риск, %<input id="pRk" type="number" step="0.1" value="1"></label>
+<label>Цена входа (пусто = ask)<input id="cEntry" type="number" step="0.1" placeholder="авто"></label>
+<label>Стоп, % премии<input id="pSL" type="number" value="40"></label>
+<label>Тейк-1, %<input id="pTP" type="number" value="70"></label>
+<label>Тейк-2, %<input id="pTP2" type="number" value="150"></label>
+<label>Шаг размера, BTC<input id="cStep" type="number" step="0.01" value="0.01"></label>
+<label>Комиссия, % номинала<input id="cFee" type="number" step="0.005" value="0.03"></label>
+<label>Тайм-стоп, мин<input id="pT" type="number" value="90"></label></div>
+<div class="out" id="cout"></div>
+<div class="small">Комиссия и шаг размера — ваши допущения по умолчанию, проверьте их в условиях выбранной биржи. Размер = риск в $ / (цена входа × стоп%), округление вниз до шага.</div></div>
+
+<div class="grid"><div>
+<div class="card"><div id="tabs"></div>
+<div class="small">Нажмите Bid/Ask/Mark нужной стороны, чтобы выбрать контракт. Линия — индекс, подсвеченные строки — ITM.</div>
+<div id="chainbox"><table class="chain" id="chain"></table></div></div>
+<div class="card"><div class="small">Свечи премии (mark/сделки) + Donchian S2</div><div id="chart"></div>
+<div class="small" style="margin-top:8px">BTC (перпетуал) + уровни, Donchian, Bollinger</div><div id="chart2"></div></div></div>
+<div>
+<div class="card"><h4>Мнение (экспертная оценка)</h4><div id="opinion"></div></div>
+<div class="card"><h4>Подсказки: что ближе всего к сигналу</h4><div id="sugg"></div>
+<div class="small">% = близость к условиям стратегии. Буква = экспертная оценка сетапа (A–D).</div></div>
+<div class="card"><h4>Выбранный контракт: детали</h4><div id="sigs"></div>
+<table><tr><th>Параметр</th><th>Значение</th></tr>
+<tr><td>S2: Donchian N</td><td><input id="pN" type="number" value="20"></td></tr>
+<tr><td>S3: Bollinger период</td><td><input id="pB" type="number" value="20"></td></tr>
+<tr><td>S3: σ полос</td><td><input id="pK" type="number" step="0.1" value="2"></td></tr>
+<tr><td>S3: squeeze pctl ≤</td><td><input id="pS" type="number" value="20"></td></tr>
+<tr><td>S3: DVOL rank ≤</td><td><input id="pR" type="number" value="30"></td></tr>
+<tr><td>S3: IV/HV ≤ (нет DVOL)</td><td><input id="pH" type="number" step="0.05" value="1"></td></tr>
+<tr><td>Целевая |Δ|</td><td><input id="pD" type="number" step="0.05" value="0.35"></td></tr>
+<tr><td>Макс. спред, %</td><td><input id="pSp" type="number" value="10"></td></tr></table></div>
+<div class="card"><h4>Ключевые уровни</h4><table id="lv"></table><p class="small">Публичные API Bybit V5 / Deribit v2. GEX условный. Оценки — эвристика, не бэктест и не инвестсовет.</p></div></div></div>
+<script>
+const $=id=>document.getElementById(id);
+function showErr(m){const e=$('err');e.style.display='block';e.textContent+=m+'\n'}
+window.onerror=m=>showErr('JS: '+m);window.onunhandledrejection=e=>showErr('Promise: '+(e.reason&&e.reason.message||e.reason));
+if(typeof LightweightCharts==='undefined')showErr('Не загрузилась библиотека графиков (cdn.jsdelivr.net). Включите VPN/отключите блокировщик.');
+const LS={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}}};
+// ---------- тема ----------
+const THEMES={dark:{bg:'#0e1117',card:'#161b22',k:'#1c222b',txt:'#d8dee9',mut:'#8b949e',line:'#262c36',acc:'#f7a600',inp:'#21262d',sel:'#1a2230'},
+ light:{bg:'#f4f6f8',card:'#ffffff',k:'#eef1f4',txt:'#1f2937',mut:'#6b7280',line:'#e5e7eb',acc:'#d97706',inp:'#ffffff',sel:'#eaf2ff'},
+ navy:{bg:'#0a1424',card:'#0f1f38',k:'#142a4a',txt:'#dbe7ff',mut:'#7f95b8',line:'#1d3557',acc:'#4cc2ff',inp:'#142a4a',sel:'#12284a'},
+ term:{bg:'#000000',card:'#06130a',k:'#0b2414',txt:'#b6ffb6',mut:'#5aa65a',line:'#12361c',acc:'#39ff14',inp:'#0b2414',sel:'#0a2a14'}};
+function shade(h,a){const n=parseInt(h.slice(1),16);let r=n>>16,g=n>>8&255,b=n&255;const m=a>0?255:0,t=Math.abs(a);r=Math.round(r+(m-r)*t);g=Math.round(g+(m-g)*t);b=Math.round(b+(m-b)*t);return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('')}
+function lum(h){const n=parseInt(h.slice(1),16);return ((n>>16)*299+(n>>8&255)*587+(n&255)*114)/1000}
+let TH=THEMES.dark;
+function applyTheme(){
+ let name=$('theme').value;let t;
+ if(name==='custom'){const bg=$('cBg').value,acc=$('cAcc').value,dark=lum(bg)<128;t={bg,card:shade(bg,dark?0.06:-0.04),k:shade(bg,dark?0.12:-0.08),txt:dark?'#e6e6e6':'#1f2937',mut:dark?'#9aa0a6':'#6b7280',line:shade(bg,dark?0.16:-0.12),acc,inp:shade(bg,dark?0.14:-0.02),sel:shade(bg,dark?0.1:-0.05)}}
+ else t=THEMES[name];
+ TH=t;const r=document.documentElement.style;for(const k in t)r.setProperty('--'+k,t[k]);
+ for(const c of [c1,c2])c.applyOptions({layout:{background:{color:t.card},textColor:t.txt},grid:{vertLines:{color:t.line},horzLines:{color:t.line}}});
+ LS.set('theme',name);LS.set('cBg',$('cBg').value);LS.set('cAcc',$('cAcc').value);
+}
+const mk=id=>LightweightCharts.createChart($(id),{layout:{background:{color:'#161b22'},textColor:'#d8dee9'},grid:{vertLines:{color:'#222'},horzLines:{color:'#222'}},timeScale:{timeVisible:true}});
+const c1=mk('chart'),c2=mk('chart2');const s1=c1.addCandlestickSeries(),s2=c2.addCandlestickSeries();let L1=[],L2=[];
+// ---------- математика ----------
+const MON={JAN:0,FEB:1,MAR:2,APR:3,MAY:4,JUN:5,JUL:6,AUG:7,SEP:8,OCT:9,NOV:10,DEC:11};
+function parse(n){const p=n.split('-');const m=p[1].match(/(\d+)([A-Z]{3})(\d+)/);return{exp:Date.UTC(2000+ +m[3],MON[m[2]],+m[1],8),K:+p[2],t:p[3]}}
+const Nf=x=>Math.exp(-x*x/2)/Math.sqrt(2*Math.PI);
+const Ncdf=x=>{const t=1/(1+0.2316419*Math.abs(x)),d=Nf(x),p=d*t*(0.31938153+t*(-0.356563782+t*(1.781477937+t*(-1.821255978+t*1.330274429))));return x>0?1-p:p};
+function gamma(S,K,iv,T){if(T<=0||iv<=0)return 0;const d=(Math.log(S/K)+0.5*iv*iv*T)/(iv*Math.sqrt(T));return Nf(d)/(S*iv*Math.sqrt(T))}
+function delta(S,K,iv,T,t){if(T<=0||iv<=0)return t==='C'?(S>K?1:0):(S<K?-1:0);const d=(Math.log(S/K)+0.5*iv*iv*T)/(iv*Math.sqrt(T));return t==='C'?Ncdf(d):Ncdf(d)-1}
+const f=(x,d=0)=>x==null||isNaN(x)?'-':Number(x).toLocaleString('en-US',{maximumFractionDigits:d});
+const cp=x=>Math.max(0,Math.min(1,x));
+const P=()=>({N:+$('pN').value,B:+$('pB').value,K:+$('pK').value,S:+$('pS').value,R:+$('pR').value,H:+$('pH').value,D:+$('pD').value,Sp:+$('pSp').value,SL:+$('pSL').value,TP:+$('pTP').value,TP2:+$('pTP2').value,T:+$('pT').value,C:+$('pC').value,Rk:+$('pRk').value,step:+$('cStep').value||0.01,fee:+$('cFee').value||0});
+const kl=l=>l.map(x=>({time:Math.floor(+x[0]/1000),open:+x[1],high:+x[2],low:+x[3],close:+x[4]})).sort((a,b)=>a.time-b.time);
+// ---------- источники данных ----------
+const snaps={};
+function localCandles(sym,tf){const s=snaps[sym]||[],w=tf*60000,m={};for(const x of s){const k=Math.floor(x.t/w)*w;const c=m[k];if(!c)m[k]={time:k/1000,open:x.p,high:x.p,low:x.p,close:x.p};else{c.high=Math.max(c.high,x.p);c.low=Math.min(c.low,x.p);c.close=x.p}}return Object.values(m)}
+const BY='https://api.bybit.com/v5/market/',DB='https://www.deribit.com/api/v2/public/';
+async function bj(ep,p){const d=await (await fetch(BY+ep+'?'+new URLSearchParams(p))).json();if(d.retCode!==0)throw new Error('Bybit '+ep+': '+d.retMsg);return d.result}
+async function dj(m,p){const d=await (await fetch(DB+m+'?'+new URLSearchParams(p))).json();if(d.error)throw new Error('Deribit '+m+': '+d.error.message);return d.result}
+const SRC={
+ bybit:{name:'Bybit',defStep:0.01,
+  async chain(){const res=await bj('tickers',{category:'option',baseCoin:'BTC'});const now=Date.now();
+   const rows=res.list.map(o=>{try{return{...parse(o.symbol),symbol:o.symbol,iv:+o.markIv,oi:+o.openInterest,mark:+o.markPrice,bid:+o.bid1Price,ask:+o.ask1Price,dl:+o.delta,idx:+o.indexPrice,und:+o.underlyingPrice}}catch(e){return null}}).filter(o=>o&&o.exp>now&&o.iv>0);
+   return{rows,S:rows.length?(rows[0].idx||rows[0].und):0}},
+  async und(tf){const u=await bj('kline',{category:'linear',symbol:'BTCUSDT',interval:tf,limit:500});return kl(u.list)},
+  async optC(sym,tf){let O=[];try{const o=await bj('mark-price-kline',{category:'option',symbol:sym,interval:tf,limit:300});O=kl(o.list||[])}catch(e){}
+   return O.length>=10?{O,src:'Bybit mark-price kline'}:{O:localCandles(sym,+tf),src:'локальные снимки mark (копятся)'}},
+  async hv(){const r=await bj('historical-volatility',{category:'option',baseCoin:'BTC',period:'7'});const l=r.list||r;return +(l[l.length-1].value)*100}},
+ deribit:{name:'Deribit',defStep:0.1,
+  async chain(){const now=Date.now();const [sum,ix]=await Promise.all([dj('get_book_summary_by_currency',{currency:'BTC',kind:'option'}),dj('get_index_price',{index_name:'btc_usd'})]);const S=ix.index_price;
+   const rows=sum.map(o=>{try{const p=parse(o.instrument_name),u=o.underlying_price||S,T=(p.exp-now)/3.15576e10,iv=+o.mark_iv;
+    return{...p,symbol:o.instrument_name,iv,oi:+o.open_interest,mark:o.mark_price*u,bid:(o.bid_price||0)*u,ask:(o.ask_price||0)*u,dl:delta(S,p.K,iv/100,T,p.t),idx:S,und:u}}catch(e){return null}}).filter(o=>o&&o.exp>now&&o.iv>0);
+   return{rows,S}},
+  async und(tf){const now=Date.now();const r=await dj('get_tradingview_chart_data',{instrument_name:'BTC-PERPETUAL',start_timestamp:now-500*tf*60000,end_timestamp:now,resolution:String(tf)});
+   return r.ticks.map((t,i)=>({time:t/1000,open:r.open[i],high:r.high[i],low:r.low[i],close:r.close[i]}))},
+  async optC(sym,tf){const now=Date.now();let O=[];try{const r=await dj('get_tradingview_chart_data',{instrument_name:sym,start_timestamp:now-500*tf*60000,end_timestamp:now,resolution:String(tf)});
+    const px=Object.fromEntries((Q.U||[]).map(b=>[b.time,b.close]));const m=t=>px[t/1000]||D.S;
+    O=(r.ticks||[]).map((t,i)=>({time:t/1000,open:r.open[i]*m(t),high:r.high[i]*m(t),low:r.low[i]*m(t),close:r.close[i]*m(t)}))}catch(e){}
+   return O.length>=10?{O,src:'Deribit сделки (BTC×индекс)'}:{O:localCandles(sym,+tf),src:'локальные снимки mark (копятся)'}},
+  async hv(){const r=await dj('get_historical_volatility',{currency:'BTC'});return +r[r.length-1][1]}}
+};
+let D={rows:[]},Q={},SEL={exp:null,sym:null},EXT={hv:null,dv:null};
+const cur=()=>SRC[$('src').value];
+async function load(){
+ const {rows,S}=await cur().chain();const now=Date.now();
+ if(!rows.length)throw new Error('Пустая цепочка опционов');
+ rows.forEach(o=>{const a=snaps[o.symbol]=snaps[o.symbol]||[];a.push({t:now,p:o.mark});if(a.length>3000)a.shift()});
+ D.rows=rows;D.S=S;D.exps=[...new Set(rows.map(o=>o.exp))].sort((a,b)=>a-b);
+ if(!SEL.exp||!D.exps.includes(SEL.exp))SEL.exp=D.exps[0];
+ if(!EXT.t||now-EXT.t>300000){EXT.t=now;
+  try{EXT.hv=await cur().hv()}catch(e){EXT.hv=null}
+  try{const r=await dj('get_volatility_index_data',{currency:'BTC',start_timestamp:now-30*864e5,end_timestamp:now,resolution:'3600'});const c=r.data.map(x=>x[4]);EXT.dv=(c[c.length-1]-Math.min(...c))/(Math.max(...c)-Math.min(...c))*100}catch(e){EXT.dv=null}}
+ await render();
+}
+function tabs(){const now=Date.now();$('tabs').innerHTML=D.exps.map(e=>{const d=new Date(e);const h=(e-now)/36e5;const lab=d.getUTCDate()+' '+Object.keys(MON)[d.getUTCMonth()]+' '+String(d.getUTCFullYear()).slice(2);
+ return `<div class="tab ${e===SEL.exp?'a':''}" data-e="${e}">${lab}${h<24?'<span class="zero">0DTE</span>':''}<div class="small" style="color:inherit">${h<24?f(h,1)+'ч':f(h/24,1)+'д'}</div></div>`}).join('');
+ document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{SEL.exp=+t.dataset.e;SEL.sym=null;render()})}
+function chainTable(day,S,atmK){
+ const ks=[...new Set(day.map(o=>o.K))].sort((a,b)=>a-b);let sp=false;
+ const cell=(o,side,itm)=>{if(!o)return '<td></td>'.repeat(5);const mk=(v,cls)=>`<td class="c ${itm?'itm':''} ${cls} ${o.symbol===SEL.sym?'sel':''}" data-s="${o.symbol}">${v}</td>`;
+  const a=[mk(f(o.iv,1)+'%',''),mk(f(o.dl,2),''),mk(f(o.bid,1),'bid'),mk(f(o.ask,1),'ask'),mk(f(o.mark,1),'')];return (side==='C'?a:a.reverse()).join('')};
+ let h='<tr><th colspan="5" class="res">CALL</th><th></th><th colspan="5" class="sup">PUT</th></tr><tr><th>IV</th><th>Δ</th><th>Bid</th><th>Ask</th><th>Mark</th><th>Strike</th><th>Mark</th><th>Ask</th><th>Bid</th><th>Δ</th><th>IV</th></tr>';
+ for(const k of ks){const c=day.find(o=>o.K===k&&o.t==='C'),p=day.find(o=>o.K===k&&o.t==='P');const sepRow=!sp&&k>S;sp=sp||sepRow;
+  h+=`<tr class="${k===atmK?'atm':''} ${sepRow?'spot':''}">${cell(c,'C',k<S)}<td class="s">${f(k)}</td>${cell(p,'P',k>S)}</tr>`}
+ $('chain').innerHTML=h;document.querySelectorAll('#chain td.c').forEach(td=>td.onclick=()=>{SEL.sym=td.dataset.s;render()});
+}
+async function render(){
+ const now=Date.now(),S=D.S,e0=SEL.exp,T=(e0-now)/3.15576e10;const day=D.rows.filter(o=>o.exp===e0);
+ const ks=[...new Set(day.map(o=>o.K))].sort((a,b)=>a-b);const atmK=ks.reduce((a,b)=>Math.abs(b-S)<Math.abs(a-S)?b:a);
+ const ac=day.find(o=>o.K===atmK&&o.t==='C'),ap=day.find(o=>o.K===atmK&&o.t==='P');
+ if(!SEL.sym||!day.some(o=>o.symbol===SEL.sym))SEL.sym=ac?.symbol||day[0].symbol;
+ const iv=((ac?.iv||0)+(ap?.iv||0))/(ac&&ap?2:1);const em=S*iv/100*Math.sqrt(T);const strad=(ac?.mark||0)+(ap?.mark||0);
+ let best=null;for(const x of ks){let p=0;for(const o of day)p+=o.oi*(o.t==='C'?Math.max(x-o.K,0):Math.max(o.K-x,0));if(!best||p<best.p)best={x,p}}
+ const gx=a=>{const m={};for(const o of a){const Ti=(o.exp-now)/3.15576e10;m[o.K]=(m[o.K]||0)+gamma(S,o.K,o.iv/100,Ti)*o.oi*S*S*0.01*(o.t==='C'?1:-1)}return m};
+ const g0=gx(day),gAll=gx(D.rows);
+ const top=(m,sg)=>Object.entries(m).filter(([k,v])=>Math.abs(k-S)<S*0.1&&v*sg>0).sort((a,b)=>sg*b[1]-sg*a[1])[0];
+ const cw=top(g0,1),pw=top(g0,-1),cwA=top(gAll,1),pwA=top(gAll,-1);
+ let flip=null,prev=null;for(let s=S*0.9;s<=S*1.1;s+=S*0.0025){let t=0;for(const o of D.rows){const Ti=(o.exp-now)/3.15576e10;t+=gamma(s,o.K,o.iv/100,Ti)*o.oi*s*s*0.01*(o.t==='C'?1:-1)}
+  if(prev!==null&&Math.sign(prev.t)!==Math.sign(t)&&flip===null)flip=(s+prev.s)/2;prev={s,t}}
+ const oiC=day.filter(o=>o.t==='C').reduce((a,o)=>a+o.oi,0),oiP=day.filter(o=>o.t==='P').reduce((a,o)=>a+o.oi,0);
+ const oiK={};day.forEach(o=>oiK[o.K]=(oiK[o.K]||0)+o.oi);const oiTop=Object.entries(oiK).sort((a,b)=>b[1]-a[1]).slice(0,3);
+ const lv=[['+2σ',S+2*em,'res'],['+1σ',S+em,'res'],['Call Wall',cw&&+cw[0],'res'],['Call Wall все',cwA&&+cwA[0],'res'],['Gamma Flip',flip,'mid'],['Max Pain',best.x,'mid'],['Spot',S,'mid'],
+  ...oiTop.map((x,i)=>['OI #'+(i+1),+x[0],'mid']),['Put Wall',pw&&+pw[0],'sup'],['Put Wall все',pwA&&+pwA[0],'sup'],['−1σ',S-em,'sup'],['−2σ',S-2*em,'sup']].filter(x=>x[1]).sort((a,b)=>b[1]-a[1]);
+ D={...D,lv,flip,em,iv,day,hvr:EXT.hv?iv/EXT.hv:null,dv:EXT.dv,T,e0};
+ $('spot').textContent='$'+f(S);$('selt').textContent=new Date(e0).toISOString().slice(0,10)+' · '+SEL.sym.split('-')[2]+' '+SEL.sym.split('-')[3];
+ $('ttl').textContent=Math.floor((e0-now)/36e5)+'ч '+Math.floor((e0-now)%36e5/6e4)+'м';
+ $('iv').textContent=f(iv,1)+'%';$('em').textContent='±$'+f(em)+' ('+f(em/S*100,2)+'%)';$('str').textContent='$'+f(strad);
+ $('mp').textContent='$'+f(best.x);$('gf').textContent=flip?'$'+f(flip):'нет';$('pc').textContent=f(oiP/oiC,2);
+ $('hv').textContent=D.hvr?f(D.hvr,2):'-';$('dv').textContent=EXT.dv==null?'н/д':f(EXT.dv,0);
+ $('lv').innerHTML='<tr><th>Уровень</th><th>Цена</th><th>Δ</th></tr>'+lv.map(x=>`<tr class="${x[2]}"><td>${x[0]}</td><td>${f(x[1])}</td><td>${f((x[1]/S-1)*100,2)}%</td></tr>`).join('');
+ tabs();chainTable(day,S,atmK);await draw();
+}
+const hi=(a,i,n)=>Math.max(...a.slice(Math.max(0,i-n),i).map(x=>x.high)),lo=(a,i,n)=>Math.min(...a.slice(Math.max(0,i-n),i).map(x=>x.low));
+const atr=(a,n=14)=>{const x=a.slice(-n);return x.reduce((s,b)=>s+(b.high-b.low),0)/x.length||1};
+const withSp=o=>({...o,sp:o.bid>0&&o.ask>0?(o.ask-o.bid)/((o.ask+o.bid)/2)*100:99});
+function pickContract(isC,p){
+ const t=isC?'C':'P';let c=D.day.filter(o=>o.t===t&&o.bid>0&&o.ask>0&&o.mark>0).map(withSp);
+ const ok=c.filter(o=>o.sp<=p.Sp);if(ok.length)c=ok;if(!c.length)return null;
+ return c.sort((a,b)=>(Math.abs(Math.abs(a.dl)-p.D)+a.sp/200)-(Math.abs(Math.abs(b.dl)-p.D)+b.sp/200))[0];
+}
+function calc(isC,U,O,p){
+ const S=D.S,i=U.length-1,last=U[i],A=atr(U),cl=U.map(b=>b.close),res={};
+ const lvls=D.lv.filter(x=>x[0]!=='Spot'&&(isC?x[1]<=S*1.0005:x[1]>=S*0.9995));
+ const nearL=lvls.length?lvls.reduce((a,b)=>Math.abs(b[1]-S)<Math.abs(a[1]-S)?b:a):null;
+ const pos=!D.flip||S>=D.flip;const dist=nearL?Math.abs(nearL[1]-S):Infinity;
+ const body=Math.abs(last.close-last.open)||1e-9;const wick=isC?(Math.min(last.open,last.close)-last.low)>body*1.5:(last.high-Math.max(last.open,last.close))>body*1.5;
+ const mom=cl[i]-cl[Math.max(0,i-10)];const regimeOK=pos?true:(isC?mom>0:mom<0);
+ const nearOK=dist<=D.em*0.15;
+ res.s1={conds:[[regimeOK,pos?'Положительная гамма: игра на отскок от уровня':'Отрицательная гамма: направление импульса '+(regimeOK?'совпадает':'против')],[nearOK,nearL?`Уровень ${nearL[0]} ${f(nearL[1])}, дист. $${f(dist)} (нужно ≤ $${f(D.em*0.15)})`:'Нет уровня с нужной стороны'],[wick,'Свеча отвержения (тень)']],
+  score:0.3*(regimeOK?1:0)+0.5*(nearL?cp(1-(dist-D.em*0.15)/(D.em*0.5)):0)+0.2*(wick?1:0)};
+ const lvlU=isC?hi(U,i,p.N):lo(U,i,p.N);const uN=isC?last.close>lvlU:last.close<lvlU;
+ const su=uN?1:cp(1-Math.abs(lvlU-last.close)/(1.5*A));
+ const haveO=O&&O.length>p.N+2;let so=0,oN=false,dO=null;
+ if(haveO){const io=O.length-1;dO=hi(O,io,p.N);oN=O[io].close>dO;so=oN?1:cp(1-(dO-O[io].close)/(1.5*atr(O)))}
+ res.s2={conds:[[uN,`BTC ${isC?'выше max':'ниже min'} ${p.N} свечей (${f(lvlU)}), сейчас ${f(last.close)}`],[oN,haveO?`Премия выше max ${p.N} свечей (${f(dO,1)})`:'Мало свечей премии (копятся)']],score:0.5*su+0.5*so,lvlU,dO};
+ const bw=[];for(let k=p.B;k<cl.length;k++){const w=cl.slice(k-p.B,k);const m=w.reduce((a,b)=>a+b)/p.B;const sd=Math.sqrt(w.reduce((a,b)=>a+(b-m)**2,0)/p.B);bw.push({bw:2*p.K*sd/m,up:m+p.K*sd,dn:m-p.K*sd})}
+ const cur_=bw[bw.length-1],hist=bw.slice(-200).map(x=>x.bw);const pr=h=>hist.filter(x=>x<=h).length/hist.length*100;const pct=pr(cur_.bw);
+ const sqR=bw.slice(-6,-1).some(x=>pr(x.bw)<=p.S);const pb=bw[bw.length-2];const band=isC?pb.up:pb.dn;const trig=isC?cl[i]>band:cl[i]<band;
+ let ivv=null,thr,ivtxt;if(D.dv!=null){ivv=D.dv;thr=p.R;ivtxt=`DVOL rank ${f(ivv,0)} ≤ ${thr}`}else if(D.hvr){ivv=D.hvr;thr=p.H;ivtxt=`IV/HV ${f(ivv,2)} ≤ ${thr}`}
+ const ivok=ivv!=null&&ivv<=thr;const sI=ivv==null?0:ivok?1:cp(1-(ivv-thr)/thr);
+ const sS=sqR?1:cp(1-(pct-p.S)/(100-p.S));const sT=trig?1:cp(1-Math.abs(band-cl[i])/(1.5*A));
+ res.s3={conds:[[ivok,ivtxt||'нет данных по IV-режиму'],[sqR,`Squeeze: BW в нижних ${p.S}% за 5 баров (сейчас ${f(pct,0)})`],[trig,`Закрытие ${isC?'выше верхней':'ниже нижней'} полосы (${f(band)})`]],score:(sI+sS+sT)/3,bb:cur_};
+ return res;
+}
+function expert(c,isC,r,p,stratScore){
+ const S=D.S,hrs=(D.e0-Date.now())/36e5,ask=c.ask>0?c.ask:c.mark,sp=c.sp??withSp(c).sp;
+ const confl=['s1','s2','s3'].filter(k=>r[k].score>=0.6).length;
+ const need=isC?(c.K+ask-S):(S-(c.K-ask));const ratio=need<=0?0:need/D.em;
+ const F=[
+  ['Сигнал стратегии',0.35,stratScore,`лучшая стратегия ${f(stratScore*100,0)}%`],
+  ['Согласованность',0.15,confl/3,`${confl} из 3 стратегий ≥60%`],
+  ['Безубыток vs ход',0.20,cp(1-ratio/1.2),need<=0?'безубыток уже в деньгах':`нужно $${f(need)} = ${f(ratio,2)}σ до безубытка`],
+  ['Время',0.10,hrs<1.5?0:hrs<3?0.5:hrs>168?0.6:1,hrs<1.5?'до экспирации <1,5 ч — риск экстремальной теты':hrs<3?'до экспирации <3 ч':'времени достаточно'],
+  ['Ликвидность',0.10,0.6*cp(1-(sp-2)/(p.Sp-2))+0.4*cp(Math.log10(1+c.oi)/2),`спред ${f(sp,1)}%, OI ${f(c.oi,1)} BTC`],
+  ['Цена IV',0.10,D.hvr==null?0.5:cp(1-(D.hvr-1)/0.5),D.hvr==null?'нет данных IV/HV':`IV/HV = ${f(D.hvr,2)}`]];
+ const tot=F.reduce((a,x)=>a+x[1]*x[2],0)*100;const g=tot>=75?'A':tot>=60?'B':tot>=45?'C':'D';
+ const worst=F.slice().sort((a,b)=>a[2]-b[2])[0];
+ const verdict={A:'Хороший сетап: можно входить по плану риска.',B:'Приемлемо: ждите подтверждения (закрытие свечи/пробой) перед входом.',C:'Слабый сетап: только мелким размером или пропустить.',D:'Пропустить: условия не сложились.'}[g];
+ return{tot,g,F,worst,verdict,confl};
+}
+const badge=e=>`<span class="gr g${e.g}">${e.g}</span> <b>${f(e.tot,0)}</b>/100`;
+// ---------- калькулятор позиции ----------
+function posCalc(){
+ const p=P(),sel=D.day&&D.day.find(z=>z.symbol===SEL.sym);if(!sel){return}
+ const isC=sel.t==='C',ask=sel.ask>0?sel.ask:sel.mark;const ov=parseFloat($('cEntry').value);const entry=ov>0?ov:ask;
+ const riskUsd=p.C*p.Rk/100,lossPer=entry*p.SL/100;let qty=lossPer>0?Math.floor(riskUsd/lossPer/p.step+1e-9)*p.step:0;
+ const cost=qty*entry,fee=qty*D.S*p.fee/100*2,maxLossStop=qty*lossPer+fee,full=cost+fee;
+ const tp1=qty*entry*p.TP/100-fee,tp2=qty*entry*p.TP2/100-fee,rr=maxLossStop>0?tp1/maxLossStop:0;
+ const be=isC?sel.K+entry:sel.K-entry,mv=(isC?be-D.S:D.S-be);
+ const box=(l,v,cls='')=>`<div><span class="small">${l}</span><b class="${cls}">${v}</b></div>`;
+ $('cSym').textContent=sel.symbol+(ov>0?' · вход вручную':'');
+ $('cout').innerHTML=box('Цена входа / 1 BTC','$'+f(entry,2))+box('Размер',f(qty,3)+' BTC','mid')+box('Стоимость позиции','$'+f(cost,2)+' ('+f(cost/p.C*100,1)+'% капитала)',cost>p.C?'no':'')+
+  box('Риск до стопа','−$'+f(maxLossStop,2),'no')+box('Цена стопа','$'+f(entry*(1-p.SL/100),2))+box('Тейк-1','+$'+f(tp1,2)+' @ $'+f(entry*(1+p.TP/100),2),'ok')+
+  box('Тейк-2','+$'+f(tp2,2)+' @ $'+f(entry*(1+p.TP2/100),2),'ok')+box('R:R (тейк-1)',f(rr,2))+box('Макс. убыток (премия → 0)','−$'+f(full,2),'no')+
+  box('Безубыток BTC',f(be)+' ('+(mv>0?'+':'')+f(mv/D.S*100,2)+'% от спота)')+(qty<=0?'<div class="no" style="min-width:200px">Риск мал для шага размера: увеличьте риск или уменьшите шаг.</div>':'');
+}
+let lastKey='';
+async function draw(){
+ const tf=$('tf').value,name=SEL.sym,p=P();if(!name)return;
+ const U=await cur().und(+tf);Q.U=U;
+ const sel=withSp(D.day.find(z=>z.symbol===name)),isC=sel.t==='C';
+ const {O,src}=await cur().optC(name,+tf);
+ const recs={};for(const dir of [true,false]){const c=pickContract(dir,p);if(c){const oc=c.symbol===name?{O,src}:await cur().optC(c.symbol,+tf);recs[dir?'C':'P']={c,O:oc.O}}}
+ s2.setData(U);s1.setData(O);Q={O,U,name,src};
+ L1.forEach(l=>s1.removePriceLine(l));L2.forEach(l=>s2.removePriceLine(l));L1=[];L2=[];
+ const col={res:'#f85149',sup:'#3fb950',mid:TH.acc};D.lv.forEach(x=>L2.push(s2.createPriceLine({price:x[1],color:col[x[2]],lineWidth:1,lineStyle:2,title:x[0]})));
+ const r=calc(isC,U,O,p);
+ if(r.s2.dO)L1.push(s1.createPriceLine({price:r.s2.dO,color:'#58a6ff',lineStyle:2,title:'Donchian hi'}));
+ L2.push(s2.createPriceLine({price:r.s2.lvlU,color:'#58a6ff',lineStyle:3,title:'Donchian'}),s2.createPriceLine({price:r.s3.bb.up,color:'#a371f7',lineStyle:3,title:'BB up'}),s2.createPriceLine({price:r.s3.bb.dn,color:'#a371f7',lineStyle:3,title:'BB dn'}));
+ detail(r,sel,p,isC,src);suggest(U,recs,p);posCalc();
+ if(lastKey!==name+tf){c1.timeScale().fitContent();c2.timeScale().fitContent();lastKey=name+tf}
+}
+const chk=(ok,t)=>`<div class="${ok?'ok':'no'}">${ok?'✔':'✖'} ${t}</div>`;
+const NM={s1:'S1 Уровень + гамма',s2:'S2 Пробой max/min',s3:'S3 Низкая волатильность'};
+function fxTable(e){return '<table class="fx">'+e.F.map(x=>`<tr><td>${x[0]} (${x[1]*100}%)</td><td>${f(x[2]*100,0)}</td><td style="text-align:left;color:var(--mut)">${x[3]}</td></tr>`).join('')+'</table>'}
+function detail(r,sel,p,isC,src){
+ const e=expert(sel,isC,r,p,Math.max(r.s1.score,r.s2.score,r.s3.score));
+ $('sigs').innerHTML=`<div class="small">${sel.symbol} · mark ${f(sel.mark,1)} · Δ ${f(sel.dl,2)} · свечи премии: ${src}</div>`+
+ `<div class="op">Оценка контракта: ${badge(e)}<div class="small">${e.verdict}</div>${fxTable(e)}</div>`+
+ ['s1','s2','s3'].map(k=>{const on=r[k].conds.every(c=>c[0]);return `<h4>${NM[k]} · ${f(r[k].score*100,0)}%</h4><div class="sig ${on?'on':'off'}">${on?'СИГНАЛ '+(isC?'CALL':'PUT'):'нет сигнала'}</div>`+r[k].conds.map(c=>chk(c[0],c[1])).join('')}).join('');
+}
+function suggest(U,recs,p){
+ const out=[],R={};
+ for(const d of ['C','P']){const rc=recs[d];if(!rc)continue;R[d]=calc(d==='C',U,rc.O,p)}
+ for(const d of ['C','P']){const rc=recs[d];if(!rc)continue;const r=R[d];
+  for(const k of ['s1','s2','s3']){const e=expert(rc.c,d==='C',r,p,r[k].score);
+   out.push({k,d,sc:r[k].score,e,full:r[k].conds.every(c=>c[0]),miss:r[k].conds.filter(c=>!c[0]).map(c=>c[1]),c:rc.c})}}
+ out.sort((a,b)=>b.e.tot-a.e.tot);
+ const hrs=(D.e0-Date.now())/36e5;
+ if(out.length){const b=out[0];const c=b.c;
+  $('opinion').innerHTML=`<div class="op"><b>Лучший вариант сейчас:</b> <span class="tg ${b.d}">${b.d==='C'?'CALL':'PUT'}</span> ${c.symbol.split('-').slice(1,4).join(' ')} · ${NM[b.k]}<br>Оценка: ${badge(b.e)}<div style="margin:4px 0">${b.e.verdict}</div>
+  <div class="small">Слабое место: <b>${b.e.worst[0]}</b> — ${b.e.worst[3]}.</div>${fxTable(b.e)}
+  <div class="small" style="margin-top:4px">${out.every(x=>x.e.g==='D'||x.e.g==='C')?'Мнение: сейчас нет качественного входа — разумно ждать.':'Мнение: ориентируйтесь на варианты с оценкой A–B и выполненными условиями стратегии.'}</div></div>`}
+ else $('opinion').innerHTML='<div class="small">Нет контрактов с bid/ask.</div>';
+ $('sugg').innerHTML=(hrs<1.5?'<div class="no small">⚠ До экспирации менее 1,5 ч: гамма/тета экстремальны, лучше выбрать следующую серию.</div>':'')+
+ (out.slice(0,6).map((x,i)=>{const c=x.c,prem=c.ask,status=x.full?'СИГНАЛ':x.sc>=0.7?'близко':x.sc>=0.4?'средне':'далеко';
+  return `<div class="sg ${i===0?'best':''}" data-s="${c.symbol}"><div><span class="tg ${x.d}">${x.d==='C'?'CALL':'PUT'}</span> <b>${NM[x.k]}</b> · ${status} · ${f(x.sc*100,0)}% · мнение ${badge(x.e)}</div>
+  <div class="bar"><i style="width:${x.sc*100}%"></i></div>
+  <div class="small">${c.symbol.split('-').slice(1,4).join(' ')} · Δ ${f(c.dl,2)} · ask ${f(prem,1)} · спред ${f(c.sp,1)}% · IV ${f(c.iv,0)}% · стоп ${f(prem*(1-p.SL/100),1)} · тейк ${f(prem*(1+p.TP/100),1)}</div>
+  ${x.miss.length?'<div class="small no">Не хватает: '+x.miss.join('; ')+'</div>':'<div class="small ok">Все условия выполнены</div>'}</div>`}).join('')||'<div class="small">Нет подходящих контрактов (нет bid/ask).</div>');
+ document.querySelectorAll('.sg').forEach(el=>el.onclick=()=>{SEL.sym=el.dataset.s;render()});
+}
+// ---------- инициализация ----------
+['pN','pB','pK','pS','pR','pH','pD','pSp','pSL','pTP','pTP2','pT','pC','pRk','cStep','cFee'].forEach(id=>$(id).onchange=draw);
+$('cEntry').oninput=posCalc;$('tf').onchange=draw;
+$('theme').onchange=applyTheme;$('cBg').oninput=()=>{$('theme').value='custom';applyTheme()};$('cAcc').oninput=()=>{$('theme').value='custom';applyTheme()};
+$('src').onchange=()=>{LS.set('src',$('src').value);$('cStep').value=cur().defStep;SEL={exp:null,sym:null};EXT.t=0;D={rows:[]};Q={};run()};
+if(LS.get('theme'))$('theme').value=LS.get('theme');if(LS.get('cBg'))$('cBg').value=LS.get('cBg');if(LS.get('cAcc'))$('cAcc').value=LS.get('cAcc');
+if(LS.get('src'))$('src').value=LS.get('src');$('cStep').value=cur().defStep;applyTheme();
+let busy=false;const run=async()=>{if(busy)return;busy=true;try{await load();$('err').style.display='none';$('err').textContent=''}catch(e){showErr('Загрузка ('+cur().name+'): '+e.message+'. Попробуйте переключить источник.')}busy=false};
+run();setInterval(run,15000);
+</script></body></html>
